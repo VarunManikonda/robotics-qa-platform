@@ -69,3 +69,20 @@ def reachable(point_m: Sequence[float], margin: float = 0.05) -> bool:
     shoulder_z = D[0]
     r = math.sqrt(x * x + y * y + (z - shoulder_z) ** 2)
     return r <= (MAX_REACH - margin)
+
+
+def nearest_equivalent(q: Sequence[float], ref: Sequence[float], limit: float = JOINT_LIMIT) -> list[float]:
+    """Each angle shifted by whole turns to the value closest to `ref` that stays within +/- limit.
+
+    IK solvers may return an angle a full turn (2 pi) away from the current one; the arm pose is
+    identical, but moving there would spin the joint all the way round.
+    """
+    out = []
+    for a, r in zip(q, ref, strict=True):
+        best = a
+        for k in range(-2, 3):
+            cand = a + k * 2 * math.pi
+            if abs(cand) <= limit and abs(cand - r) < abs(best - r):
+                best = cand
+        out.append(best)
+    return out

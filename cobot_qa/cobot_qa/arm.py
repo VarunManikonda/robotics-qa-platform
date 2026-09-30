@@ -19,7 +19,7 @@ from sensor_msgs.msg import JointState
 from trajectory_msgs.msg import JointTrajectoryPoint
 
 from .hover import DOWN_QUAT
-from .kinematics import fk
+from .kinematics import fk, nearest_equivalent
 
 JOINTS = ["shoulder_pan_joint", "shoulder_lift_joint", "elbow_joint",
           "wrist_1_joint", "wrist_2_joint", "wrist_3_joint"]
@@ -113,7 +113,7 @@ class ArmDriver:
         if res is None or res.error_code.val != MOVEIT_OK:
             return None
         sol = dict(zip(res.solution.joint_state.name, res.solution.joint_state.position, strict=False))
-        q = [sol[j] for j in JOINTS]
+        q = nearest_equivalent([sol[j] for j in JOINTS], self.joints())
         err = float(np.linalg.norm(fk(q)[:3, 3] - np.array([x, y, z])))
         return q if err < 0.005 else None
 

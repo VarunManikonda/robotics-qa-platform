@@ -53,3 +53,27 @@ def test_reachability_rejects_far_target():
 
 def test_reachability_accepts_near_target():
     assert reachable((0.4, 0.1, 0.1))
+
+
+def test_nearest_equivalent_removes_full_turns():
+    import math
+
+    from cobot_qa.kinematics import fk, nearest_equivalent
+
+    ref = [1.5708, -1.5708, 0.0, -1.5708, 0.0, 0.0]
+    q = [1.5708 - 2 * math.pi, -1.4, 0.2, -1.6, 0.1, 2 * math.pi - 0.3]  # two joints a full turn away
+    fixed = nearest_equivalent(q, ref)
+    assert fixed[0] == pytest.approx(1.5708 - 2 * math.pi + 2 * math.pi) and fixed[5] == pytest.approx(-0.3)
+    assert max(abs(a - b) for a, b in zip(fixed, ref, strict=True)) < 0.5
+    assert fk(fixed) == pytest.approx(fk(q), abs=1e-9)  # same physical pose
+
+
+def test_nearest_equivalent_never_leaves_the_joint_limit():
+    import math
+
+    from cobot_qa.kinematics import JOINT_LIMIT, nearest_equivalent
+
+    out = nearest_equivalent([6.0], [-1.0])  # -1 is nearest to 6.0 - 2pi = -0.28, allowed
+    assert out[0] == pytest.approx(6.0 - 2 * math.pi)
+    out = nearest_equivalent([6.2], [6.0])
+    assert abs(out[0]) <= JOINT_LIMIT and out[0] == pytest.approx(6.2)
