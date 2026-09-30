@@ -25,6 +25,7 @@ from .cell import BLOCK_SIZE, PADS
 from .sorter import (
     BLOCK_REST_Z,
     PARK_JOINTS,
+    READY_XYZ,
     SLOT_OFFSETS_Y,
     Z_CARRY,
     Z_GRASP,
@@ -76,6 +77,8 @@ class SortNode(Node):
 
     # ------------------------------------------------------------ steps
     def _park(self) -> bool:
+        if not self.arm.move_to(*READY_XYZ):  # never swing straight between far-apart poses
+            return False
         return self.arm.move_joints(list(PARK_JOINTS), 8.0)
 
     def _sort_one(self, det: dict, load: int) -> bool:
@@ -88,7 +91,7 @@ class SortNode(Node):
         bx, by = det["x"], det["y"]
         self.get_logger().info(f"{name}: ({bx:.3f}, {by:.3f}) -> {pad.name} slot {load}")
         a = self.arm
-        for label, xyz in (("hover", (bx, by, Z_HOVER)), ("grasp", (bx, by, Z_GRASP))):
+        for label, xyz in (("ready", READY_XYZ), ("hover", (bx, by, Z_HOVER)), ("grasp", (bx, by, Z_GRASP))):
             if not a.move_to(*xyz):
                 self.get_logger().error(f"step '{label}' failed")
                 return False

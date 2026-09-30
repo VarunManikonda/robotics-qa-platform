@@ -124,3 +124,10 @@ def test_full_pipeline_from_synthetic_image_to_target_and_name():
 
 def test_camera_default_is_used_for_area():
     assert expected_block_area_px(Camera()) == expected_block_area_px()
+
+
+def test_ready_waypoint_is_reachable_and_clear_of_the_table():
+    from cobot_qa.sorter import READY_XYZ
+
+    assert reachable(READY_XYZ)
+    assert READY_XYZ[2] >= Z_HOVER

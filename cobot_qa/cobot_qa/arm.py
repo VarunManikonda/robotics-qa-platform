@@ -123,7 +123,7 @@ class ArmDriver:
             self.log.error(f"refusing a {delta:.1f} rad single-joint move (IK configuration flip?)")
             return False
         if seconds is None:
-            seconds = max(2.0, min(12.0, delta / 0.5))
+            seconds = max(2.5, min(14.0, delta / 0.4))
         goal = FollowJointTrajectory.Goal()
         goal.trajectory.joint_names = JOINTS
         pt = JointTrajectoryPoint()

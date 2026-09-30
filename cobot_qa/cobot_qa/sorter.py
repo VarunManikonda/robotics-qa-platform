@@ -20,6 +20,7 @@ Z_GRASP = BLOCK_SIZE + TCP_OFFSET  # tool0 height when touching the top of a blo
 BLOCK_REST_Z = PAD_THICKNESS + BLOCK_SIZE / 2  # centre of a block lying on a pad
 Z_PLACE = BLOCK_REST_Z + BLOCK_SIZE / 2 + TCP_OFFSET  # tool0 height when setting a block on a pad
 PARK_JOINTS = (1.5708, -1.5708, 0.0, -1.5708, 0.0, 0.0)  # arm out of the camera's view
+READY_XYZ = (0.40, 0.0, 0.40)  # waypoint above the table centre; every long swing goes through it
 SLOT_OFFSETS_Y = (-0.06, 0.0, 0.06)  # three slots per pad, 6 cm apart (blocks are 5 cm)
 FULL_BLOB_FRACTION = 0.85  # a blob smaller than this share of a whole block is partly hidden
 
