@@ -90,3 +90,10 @@ def test_remove_commands_target_the_same_names():
     spawned = {c[c.index("-name") + 1] for c in build_spawn_commands("empty")}
     removed = {c[-1].split('"')[1] for c in build_remove_commands("empty")}
     assert spawned == removed
+
+
+def test_blocks_have_gravity_off_so_teleport_carry_cannot_build_up_speed():
+    from cobot_qa.cell import block_sdf
+
+    for b in BLOCKS:
+        assert "<gravity>false</gravity>" in block_sdf(b), b.name

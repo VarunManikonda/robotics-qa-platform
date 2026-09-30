@@ -85,6 +85,7 @@
   <model name="block_red_1">
     <pose>0.4 0.14 0.026000000000000002 0 0 0</pose>
     <link name="link">
+      <gravity>false</gravity>
       <inertial>
         <mass>0.1</mass>
         <inertia>
@@ -107,6 +108,7 @@
   <model name="block_red_2">
     <pose>0.49 -0.03 0.026000000000000002 0 0 0</pose>
     <link name="link">
+      <gravity>false</gravity>
       <inertial>
         <mass>0.1</mass>
         <inertia>
@@ -129,6 +131,7 @@
   <model name="block_red_3">
     <pose>0.41 -0.13 0.026000000000000002 0 0 0</pose>
     <link name="link">
+      <gravity>false</gravity>
       <inertial>
         <mass>0.1</mass>
         <inertia>
@@ -151,6 +154,7 @@
   <model name="block_blue_1">
     <pose>0.31 0.06 0.026000000000000002 0 0 0</pose>
     <link name="link">
+      <gravity>false</gravity>
       <inertial>
         <mass>0.1</mass>
         <inertia>

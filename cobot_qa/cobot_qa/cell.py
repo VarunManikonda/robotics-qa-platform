@@ -72,11 +72,15 @@ def _material(rgb: tuple[float, float, float]) -> str:
 
 
 def _block_model(block: Block, pose: tuple[float, float, float] | None = None) -> str:
+    # Gravity is off on purpose: the sorter "carries" a block by teleporting it every 50 ms, and Gazebo
+    # keeps a teleported body's velocity, so with gravity on a long carry builds up enough downward speed
+    # to drop the block through the floor on release (seen on the real simulation).
     a = BLOCK_SIZE
     inertia = BLOCK_MASS * a * a / 6.0  # solid cube
     pose_xml = f"\n    <pose>{pose[0]} {pose[1]} {pose[2]} 0 0 0</pose>" if pose else ""
     return f"""  <model name="{block.name}">{pose_xml}
     <link name="link">
+      <gravity>false</gravity>
       <inertial>
         <mass>{BLOCK_MASS}</mass>
         <inertia>
