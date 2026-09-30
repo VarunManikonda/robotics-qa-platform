@@ -14,6 +14,7 @@ Needs detect_node running. NOT run in the development sandbox; see docs/TESTING.
 from __future__ import annotations
 
 import json
+import time
 
 import rclpy
 from rclpy.node import Node
@@ -22,6 +23,7 @@ from std_msgs.msg import String
 
 from .arm import ArmDriver
 from .cell import BLOCK_SIZE, PADS
+from .sort_report import build_run, post_run
 from .sorter import (
     BLOCK_REST_Z,
     PARK_JOINTS,
@@ -47,6 +49,7 @@ class SortNode(Node):
         super().__init__("sorter")
         self.declare_parameter("max_blocks", 4)
         self.declare_parameter("check_only", False)
+        self.declare_parameter("dashboard_url", "http://127.0.0.1:8000")  # "" turns reporting off
         self.dets: list[dict] | None = None
         self.carry: str | None = None
         self.create_subscription(String, "/cell/detections", self._on_dets, 1)
@@ -110,6 +113,16 @@ class SortNode(Node):
         a.wait_until(fut.done, 3.0)
         return a.move_to(px, py, Z_CARRY)
 
+    def _report(self, det: dict, pad_name: str, slot: int, cycle_s: float, ok: bool) -> None:
+        url = self.get_parameter("dashboard_url").value
+        if not url:
+            return
+        run = build_run(name_for_detection(det) or "unknown", det, pad_name, slot, cycle_s, ok,
+                        "" if ok else "see sorter log")
+        sent = post_run(run, url)
+        status = "posted" if sent else f"NOT reachable at {url}"
+        self.get_logger().info(f"dashboard: {status} - {run['message']}")
+
     def _check_only(self) -> int:
         a = self.arm
         rows, bad = [], 0
@@ -157,7 +170,11 @@ class SortNode(Node):
                 self.get_logger().info("nothing left to sort")
                 break
             pad = destination(det["colour"])
-            if not self._sort_one(det, pad_load(dets, pad)):
+            slot = pad_load(dets, pad)
+            started = time.monotonic()
+            ok = self._sort_one(det, slot)
+            self._report(det, pad.name, slot, time.monotonic() - started, ok)
+            if not ok:
                 self.get_logger().error("sort step failed; parking and stopping")
                 self._park()
                 return 1
