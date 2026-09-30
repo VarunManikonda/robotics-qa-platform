@@ -12,7 +12,13 @@ from cobot_qa.detector import colour_masks, components, detect_blocks, match_to_
 from cobot_qa.world import CAMERA, build_world_sdf
 
 SIM = Path(__file__).resolve().parents[1] / "sim"
-FLOOR = (140, 140, 140)
+FLOOR = (181, 181, 181)  # measured in real Gazebo
+
+
+def washed(rgb):
+    """Gazebo's ambient light lifts colours: fitted to samples from the real camera image,
+    e.g. (200,40,40) -> (211,101,101) and the orange pad (230,128,26) -> about (225,173,82)."""
+    return tuple(min(255.0, 73.5 + 0.6875 * c) for c in rgb)
 
 
 # ---------------------------------------------------------------- camera geometry
@@ -104,9 +110,9 @@ def render(cam=CAMERA, blocks=BLOCKS, brightness=1.0, noise=2.0, seed=0, shift_p
         img[int(round(v0)) : int(round(v1)), int(round(u0)) : int(round(u1))] = rgb
 
     for p in PADS:
-        paint(p.x, p.y, 0.004, PAD_SIZE / 2, tuple(255 * c for c in p.rgb))
+        paint(p.x, p.y, 0.004, PAD_SIZE / 2, washed(tuple(255 * c for c in p.rgb)))
     for b in blocks:
-        paint(b.x, b.y, BLOCK_SIZE, BLOCK_SIZE / 2, tuple(255 * c for c in b.rgb))
+        paint(b.x, b.y, BLOCK_SIZE, BLOCK_SIZE / 2, washed(tuple(255 * c for c in b.rgb)))
     img *= brightness
     img += rng.normal(0, noise, img.shape)
     return np.clip(img, 0, 255).astype(np.uint8)
@@ -142,13 +148,13 @@ def test_missing_block_is_reported_as_missing():
 
 def test_noise_specks_are_ignored():
     img = render()
-    img[10:13, 10:13] = (220, 30, 30)  # 9-pixel red speck
+    img[10:13, 10:13] = (211, 101, 101)  # 9-pixel red speck
     assert len(detect_blocks(img)) == 4
 
 
 def test_oversized_blob_is_rejected():
     img = render()
-    img[0:100, 500:600] = (220, 30, 30)  # 10,000 px red region
+    img[0:100, 500:600] = (211, 101, 101)  # 10,000 px red region
     assert len(detect_blocks(img)) == 4
 
 
@@ -174,8 +180,8 @@ def test_components_labels_separate_blobs_and_uses_4_connectivity():
 
 def test_colour_masks_are_disjoint_for_pure_colours():
     img = np.zeros((2, 2, 3), dtype=np.uint8)
-    img[0, 0] = (200, 30, 30)
-    img[0, 1] = (30, 30, 200)
+    img[0, 0] = (211, 101, 101)
+    img[0, 1] = (101, 101, 211)
     m = colour_masks(img)
     assert m["red"][0, 0] and not m["blue"][0, 0]
     assert m["blue"][0, 1] and not m["red"][0, 1]
@@ -186,7 +192,7 @@ def test_orange_colour_is_rejected_by_the_colour_rule_itself():
     """Not just by the blob-size filter: the pad colour must not classify as red at any brightness."""
     for k in (0.6, 1.0, 1.2):
         img = np.zeros((1, 1, 3), dtype=np.uint8)
-        img[0, 0] = tuple(min(255, int(255 * c * k)) for c in PADS[1].rgb)  # pad_reject (orange)
+        img[0, 0] = tuple(min(255, int(c * k)) for c in washed(tuple(255 * v for v in PADS[1].rgb)))  # pad_reject (orange)
         m = colour_masks(img)
         assert not m["red"][0, 0] and not m["blue"][0, 0], k
 
@@ -219,3 +225,15 @@ def test_layout_check_notices_an_upside_down_image():
     dets = detect_blocks(np.ascontiguousarray(render()[::-1]))
     assert any(e is None for _, e in match_to_layout(dets, BLOCKS))
 
+
+
+def test_colours_measured_in_real_gazebo_are_classified_correctly():
+    """Pixel values sampled from the real /overhead/image (ambient light washes colours out)."""
+    real = {"red": (211, 101, 101), "blue": (101, 101, 211)}
+    not_blocks = {"orange pad": (225, 173, 82), "green pad": (99, 188, 114), "floor": (181, 181, 181)}
+    for want, rgb in real.items():
+        m = colour_masks(np.array([[rgb]], dtype=np.uint8))
+        assert m[want][0, 0] and not m["red" if want == "blue" else "blue"][0, 0], want
+    for name, rgb in not_blocks.items():
+        m = colour_masks(np.array([[rgb]], dtype=np.uint8))
+        assert not m["red"][0, 0] and not m["blue"][0, 0], name

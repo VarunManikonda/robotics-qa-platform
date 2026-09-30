@@ -19,7 +19,7 @@ from .camera import Camera
 from .cell import BLOCK_SIZE, Block
 
 MIN_CHANNEL = 60  # ignore very dark pixels
-RATIO = 0.4  # other channels must be below 40% of the dominant one
+RATIO = 0.6  # other channels must be below 60% of the dominant one (Gazebo washes cubes out to ~48%)
 
 
 @dataclass(frozen=True)
