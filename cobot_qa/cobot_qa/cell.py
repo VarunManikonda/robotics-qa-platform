@@ -47,11 +47,14 @@ class Pad:
     y: float
 
 
+# The layout is deliberately NOT symmetric about the camera axes (x = 0.40, y = 0): a mirrored or
+# flipped camera image then makes some block "MISSING" in the layout check instead of matching
+# a mirror-image block by accident.
 BLOCKS = (
-    Block("block_red_1", RED, 0.40, 0.12),
-    Block("block_red_2", RED, 0.48, 0.00),
-    Block("block_red_3", RED, 0.40, -0.12),
-    Block("block_blue_1", BLUE, 0.32, 0.00, defective=True),
+    Block("block_red_1", RED, 0.40, 0.14),
+    Block("block_red_2", RED, 0.49, -0.03),
+    Block("block_red_3", RED, 0.41, -0.13),
+    Block("block_blue_1", BLUE, 0.31, 0.06, defective=True),
 )
 
 PADS = (
@@ -68,12 +71,11 @@ def _material(rgb: tuple[float, float, float]) -> str:
     )
 
 
-def block_sdf(block: Block) -> str:
+def _block_model(block: Block, pose: tuple[float, float, float] | None = None) -> str:
     a = BLOCK_SIZE
     inertia = BLOCK_MASS * a * a / 6.0  # solid cube
-    return f"""<?xml version="1.0"?>
-<sdf version="1.9">
-  <model name="{block.name}">
+    pose_xml = f"\n    <pose>{pose[0]} {pose[1]} {pose[2]} 0 0 0</pose>" if pose else ""
+    return f"""  <model name="{block.name}">{pose_xml}
     <link name="link">
       <inertial>
         <mass>{BLOCK_MASS}</mass>
@@ -93,16 +95,13 @@ def block_sdf(block: Block) -> str:
         {_material(block.rgb)}
       </visual>
     </link>
-  </model>
-</sdf>
-"""
+  </model>"""
 
 
-def pad_sdf(pad: Pad) -> str:
+def _pad_model(pad: Pad, pose: tuple[float, float, float] | None = None) -> str:
     """Flat, visual-only, static marker for a drop zone (no collision, so it never affects physics)."""
-    return f"""<?xml version="1.0"?>
-<sdf version="1.9">
-  <model name="{pad.name}">
+    pose_xml = f"\n    <pose>{pose[0]} {pose[1]} {pose[2]} 0 0 0</pose>" if pose else ""
+    return f"""  <model name="{pad.name}">{pose_xml}
     <static>true</static>
     <link name="link">
       <visual name="visual">
@@ -110,13 +109,28 @@ def pad_sdf(pad: Pad) -> str:
         {_material(pad.rgb)}
       </visual>
     </link>
-  </model>
-</sdf>
-"""
+  </model>"""
+
+
+def block_sdf(block: Block) -> str:
+    return f'<?xml version="1.0"?>\n<sdf version="1.9">\n{_block_model(block)}\n</sdf>\n'
+
+
+def pad_sdf(pad: Pad) -> str:
+    return f'<?xml version="1.0"?>\n<sdf version="1.9">\n{_pad_model(pad)}\n</sdf>\n'
+
+
+def block_pose(block: Block) -> tuple[float, float, float]:
+    """Spawn pose: 1 mm above rest height so the block settles onto the floor."""
+    return (block.x, block.y, block.z + 0.001)
+
+
+def pad_pose(pad: Pad) -> tuple[float, float, float]:
+    return (pad.x, pad.y, PAD_THICKNESS / 2)
 
 
 def all_models() -> list[tuple[str, str, float, float, float]]:
     """(name, sdf, x, y, z) for every object in the cell. Blocks spawn 1 mm high so they settle."""
-    out = [(b.name, block_sdf(b), b.x, b.y, b.z + 0.001) for b in BLOCKS]
-    out += [(p.name, pad_sdf(p), p.x, p.y, PAD_THICKNESS / 2) for p in PADS]
+    out = [(b.name, block_sdf(b), *block_pose(b)) for b in BLOCKS]
+    out += [(p.name, pad_sdf(p), *pad_pose(p)) for p in PADS]
     return out

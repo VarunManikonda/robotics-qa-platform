@@ -98,3 +98,39 @@ Expected: `6/6 succeeded`; in Gazebo, four cubes in front of the arm and a green
 floor. `ur_sim_moveit.launch.py` does not forward a `world_file` argument, which is why objects are spawned
 into the running world instead of loading a custom world.
 
+## 5. Overhead camera and block detection
+
+`sim/arm_cell.launch.py` replaces `ur_sim_moveit.launch.py` for this cell. It is the same launch (Gazebo,
+MoveIt, RViz) but loads `sim/qa_cell.sdf`, which contains the floor, the camera, the pads and the blocks,
+and bridges the camera image into ROS as `/overhead/image`. (The upstream launch file drops `world_file`.)
+
+```bash
+# stop any earlier simulation first (Ctrl+C), then:
+source /opt/ros/jazzy/setup.bash
+QT_QPA_PLATFORM=xcb ros2 launch ~/Downloads/robotics-qa-platform/cobot_qa/sim/arm_cell.launch.py
+```
+
+Park the arm out of the camera's view (the simulation starts with the arm stretched over the blocks):
+
+```bash
+ros2 action send_goal /scaled_joint_trajectory_controller/follow_joint_trajectory \
+  control_msgs/action/FollowJointTrajectory \
+  "{trajectory: {joint_names: [shoulder_pan_joint, shoulder_lift_joint, elbow_joint, wrist_1_joint, wrist_2_joint, wrist_3_joint], points: [{positions: [1.5708, -1.5708, 0.0, -1.5708, 0.0, 0.0], time_from_start: {sec: 8}}]}}"
+```
+
+Check the camera: `ros2 topic hz /overhead/image` (about 10 Hz) and view it with
+`ros2 run rqt_image_view rqt_image_view /overhead/image` (or add an Image display in RViz).
+You should see a grey floor, a green and an orange square, three red squares and one blue square.
+
+Run the detector (a terminal without the venv):
+
+```bash
+source /opt/ros/jazzy/setup.bash
+cd ~/Downloads/robotics-qa-platform/cobot_qa
+PYTHONNOUSERSITE=1 python3 -m cobot_qa.detect_node
+```
+
+Expected log: `4 blocks: ...` and `vs layout: block_red_1=<few>mm, ...`. The layout is deliberately not
+symmetric, so a mirrored or upside-down image shows up as `MISSING` rather than matching by accident.
+Errors of a few millimetres are expected (side faces of off-axis cubes are visible from above).
+

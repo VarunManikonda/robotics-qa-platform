@@ -6,7 +6,7 @@ scenarios and one shared run-history dashboard.
 | Package | What it does | Robot / stack |
 |---|---|---|
 | `dashboard/` | FastAPI + SQLite run-history service with progressive filtering, keyset pagination, stats and a small web UI | any client that can POST JSON |
-| `cobot_qa/` | Inspection-and-sort cell logic for a 6-DOF arm: independent UR5e forward kinematics, reachability pre-flight, colour-based part inspection, and a ROS 2 node that cross-checks FK against TF | Universal Robots UR5e, ROS 2 Jazzy, MoveIt 2 |
+| `cobot_qa/` | Inspection-and-sort cell for a 6-DOF arm: independent UR5e forward kinematics, reachability pre-flight, workcell world with an overhead camera, colour-based block detection, part inspection, and a ROS 2 node that cross-checks FK against TF | Universal Robots UR5e, ROS 2 Jazzy, MoveIt 2, Gazebo |
 | `amr_health/` | Streaming anomaly detector (frozen baseline + spike + CUSUM) for AMR health signals, a velocity-tracking monitor node, and a fault injector to prove detection | Nav2 / TurtleBot3 on ROS 2 Jazzy |
 
 ## Why this exists
@@ -59,17 +59,21 @@ ROS 2 Jazzy machine; the exact steps are in [docs/TESTING.md](docs/TESTING.md).
 ## What has and has not been verified
 
 * Verified in CI and locally: dashboard API, UR5e FK against a four-pose answer key, reachability,
-  inspection and mission logic, and the anomaly detector (false alarms, step, drift, spike).
-* **Not yet run on real ROS 2:** `fk_monitor_node.py`, `monitor_node.py`, `fault_injector_node.py`.
-  They compile and follow the same interfaces as the tested code, but they need a first run on a
-  Jazzy machine. See TESTING.md.
-* Sensor data in the demos is synthetic. Detector settings should be re-tuned on real recordings.
+  inspection and mission logic, workcell layout and world file, camera geometry, block detection on
+  synthetic images (with mutation checks that the tests catch mirrored/flipped cameras), and the
+  anomaly detector (false alarms, step, drift, spike).
+* Verified on a ROS 2 Jazzy machine by the repo owner: the UR5e simulation with MoveIt (Plan & Execute),
+  `fk_monitor_node` against the Gazebo simulation (45 consecutive `pass` rows, error below 0.001 mm),
+  and `spawn_cell` (6 of 6 objects created).
+* **Not yet run on real ROS 2 / Gazebo:** `arm_cell.launch.py` with the camera world, the image bridge,
+  `detect_node.py`, `monitor_node.py`, `fault_injector_node.py`. Steps are in [docs/TESTING.md](docs/TESTING.md).
+* Sensor data in the anomaly demos is synthetic. Detector settings should be re-tuned on real recordings.
 
 ## Repository layout
 
 ```
 dashboard/   FastAPI service + tests
-cobot_qa/    kinematics, inspector, mission, ROS node + tests
+cobot_qa/    kinematics, cell layout, world + camera, detector, inspector, mission, ROS nodes, sim/ launch + tests
 amr_health/  detector, simulator, ROS nodes + tests
 scripts/     offline end-to-end demo
 docs/        architecture, ROS testing runbook, standards mapping
