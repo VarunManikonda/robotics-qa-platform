@@ -142,7 +142,10 @@ class ArmDriver:
         if not self.wait_until(rfut.done, seconds + 15.0):
             self.log.error("trajectory did not finish in time")
             return False
-        return rfut.result().result.error_code == 0
+        result = rfut.result().result
+        if result.error_code != 0:
+            self.log.error(f"controller error {result.error_code}: {result.error_string}")
+        return result.error_code == 0
 
     def move_to(self, x: float, y: float, z: float) -> bool:
         q = self.ik(x, y, z)

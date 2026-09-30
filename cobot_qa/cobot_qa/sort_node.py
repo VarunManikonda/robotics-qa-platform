@@ -21,7 +21,7 @@ from ros_gz_interfaces.srv import SetEntityPose
 from std_msgs.msg import String
 
 from .arm import ArmDriver
-from .cell import PADS
+from .cell import BLOCK_SIZE, PADS
 from .sorter import (
     BLOCK_REST_Z,
     PARK_JOINTS,
@@ -88,15 +88,23 @@ class SortNode(Node):
         bx, by = det["x"], det["y"]
         self.get_logger().info(f"{name}: ({bx:.3f}, {by:.3f}) -> {pad.name} slot {load}")
         a = self.arm
-        if not (a.move_to(bx, by, Z_HOVER) and a.move_to(bx, by, Z_GRASP)):
-            return False
+        for label, xyz in (("hover", (bx, by, Z_HOVER)), ("grasp", (bx, by, Z_GRASP))):
+            if not a.move_to(*xyz):
+                self.get_logger().error(f"step '{label}' failed")
+                return False
         self.carry = name  # suction on: the block now follows the tool
-        ok = (a.move_to(bx, by, Z_CARRY) and a.move_to(px, py, Z_CARRY) and a.move_to(px, py, Z_PLACE))
+        for label, xyz in (("lift", (bx, by, Z_CARRY)), ("transfer", (px, py, Z_CARRY)),
+                           ("lower", (px, py, Z_PLACE))):
+            if not a.move_to(*xyz):
+                self.carry = None  # suction off: leave the block where the tool let go of it
+                self.get_logger().error(f"step '{label}' failed; putting the block back")
+                fut = self._set_pose(name, bx, by, BLOCK_SIZE / 2)
+                a.wait_until(fut.done, 3.0)
+                return False
+            self.get_logger().info(f"step '{label}' done")
         self.carry = None  # suction off
         fut = self._set_pose(name, px, py, BLOCK_REST_Z)  # settle it exactly on the pad
         a.wait_until(fut.done, 3.0)
-        if not ok:
-            return False
         return a.move_to(px, py, Z_CARRY)
 
     def _check_only(self) -> int:
