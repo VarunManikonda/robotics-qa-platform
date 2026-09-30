@@ -45,14 +45,29 @@ def on_any_pad(det: dict) -> bool:
     return any(on_pad(det, p) for p in PADS)
 
 
+def blocks_in_row(width_px: float, cam: Camera | None = None) -> int:
+    """How many cubes a blob of this width holds, given they sit in a row along the image u axis.
+
+    One cube is `edge` pixels wide and each further cube adds `pitch` (slot spacing) pixels. The width
+    ignores the extra area of side faces that off-axis cubes show, which made an area count unreliable.
+    """
+    cam = cam or Camera()
+    scale = cam.focal_px / (cam.z - BLOCK_SIZE)
+    edge, pitch = BLOCK_SIZE * scale, abs(SLOT_OFFSETS_Y[1] - SLOT_OFFSETS_Y[0]) * scale
+    return max(1, round((width_px - edge) / pitch) + 1)
+
+
 def pad_load(dets: list[dict], pad: Pad, cam: Camera | None = None) -> int:
     """How many blocks already sit on this pad (= the next free slot index).
 
-    Counted by blob area, not blob number: cubes in neighbouring slots are only 1 cm apart and can
-    merge into a single blob, which counting blobs would report as one block.
+    Neighbouring slots are only 1 cm apart, so cubes can merge into one blob; each blob is counted by
+    its width. Detections without a width count as one block.
     """
-    area = sum(d.get("area_px", 0) for d in dets if on_pad(d, pad))
-    return round(area / expected_block_area_px(cam))
+    total = 0
+    for d in dets:
+        if on_pad(d, pad):
+            total += blocks_in_row(d["w_px"], cam) if d.get("w_px") else 1
+    return total
 
 
 def next_on_table(dets: list[dict], cam: Camera | None = None) -> dict | None:

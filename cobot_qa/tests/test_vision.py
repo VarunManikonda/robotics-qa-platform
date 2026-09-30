@@ -239,3 +239,10 @@ def test_colours_measured_in_real_gazebo_are_classified_correctly():
     for name, rgb in not_blocks.items():
         m = colour_masks(np.array([[rgb]], dtype=np.uint8))
         assert not m["red"][0, 0] and not m["blue"][0, 0], name
+
+
+def test_detection_reports_bounding_box_size():
+    dets = detect_blocks(render())
+    edge = BLOCK_SIZE * CAMERA.focal_px / (CAMERA.z - BLOCK_SIZE)
+    for d in dets:
+        assert abs(d.w_px - edge) <= 2 and abs(d.h_px - edge) <= 2

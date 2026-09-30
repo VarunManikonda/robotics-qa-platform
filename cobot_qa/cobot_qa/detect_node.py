@@ -52,7 +52,8 @@ class DetectNode(Node):
             self.get_logger().warn(str(exc))
             return
         payload = [
-            {"colour": d.colour, "x": round(d.x, 4), "y": round(d.y, 4), "area_px": d.area_px}
+            {"colour": d.colour, "x": round(d.x, 4), "y": round(d.y, 4), "area_px": d.area_px,
+             "w_px": d.w_px, "h_px": d.h_px}
             for d in dets
         ]
         self._pub.publish(String(data=json.dumps(payload)))

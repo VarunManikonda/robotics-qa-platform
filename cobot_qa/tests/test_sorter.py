@@ -133,13 +133,27 @@ def test_ready_waypoint_is_reachable_and_clear_of_the_table():
     assert READY_XYZ[2] >= Z_HOVER
 
 
-def test_pad_load_counts_merged_neighbouring_cubes_by_area():
+def test_blocks_in_row_from_width():
+    from cobot_qa.sorter import blocks_in_row
+
+    edge = BLOCK_SIZE * Camera().focal_px / (Camera().z - BLOCK_SIZE)  # ~22 px
+    pitch = 0.06 * Camera().focal_px / (Camera().z - BLOCK_SIZE)  # ~27 px
+    for n in (1, 2, 3):
+        for extra in (0, 3, 6):  # side faces of off-axis cubes add a few pixels
+            assert blocks_in_row(edge + (n - 1) * pitch + extra) == n, (n, extra)
+
+
+def test_pad_load_uses_blob_width_not_area():
     one = expected_block_area_px()
-    merged_two = det("red", GOOD.x, GOOD.y - 0.03, area=int(2 * one + 90))  # two cubes seen as one blob
-    merged_three = det("red", GOOD.x, GOOD.y, area=int(3 * one + 180))
-    assert pad_load([merged_two], GOOD) == 2
-    assert pad_load([merged_three], GOOD) == 3
-    assert pad_load([], GOOD) == 0
+    fat_single = det("red", GOOD.x, GOOD.y, area=int(one * 1.35))  # single cube, big because of side faces
+    fat_single["w_px"] = 26
+    assert pad_load([fat_single], GOOD) == 1
+    two = det("red", GOOD.x, GOOD.y, area=1222)  # the real merged blob seen in Gazebo: two cubes
+    two["w_px"] = 52
+    assert pad_load([two], GOOD) == 2
+    three = det("red", GOOD.x, GOOD.y, area=1900)
+    three["w_px"] = 78
+    assert pad_load([three], GOOD) == 3
 
 
 def test_pad_load_from_a_rendered_pad_with_cubes_in_adjacent_slots():
@@ -148,6 +162,12 @@ def test_pad_load_from_a_rendered_pad_with_cubes_in_adjacent_slots():
 
     blocks = tuple(Block(f"b{i}", BLOCKS[0].rgb, *slot_xy(GOOD, i)) for i in range(3))
     for n in (1, 2, 3):
-        dets = [{"colour": d.colour, "x": d.x, "y": d.y, "area_px": d.area_px}
+        dets = [{"colour": d.colour, "x": d.x, "y": d.y, "area_px": d.area_px, "w_px": d.w_px}
                 for d in detect_blocks(render(blocks=blocks[:n]))]
         assert pad_load(dets, GOOD) == n, n
+
+
+def test_cubes_stacked_in_one_slot_are_not_counted_twice():
+    """Two cubes on the same spot look like one cube: the width rule cannot tell, which is why the
+    sorter must never place a second cube into an occupied slot (it reads the count before each pick)."""
+    assert pad_load([dict(det("red", GOOD.x, GOOD.y), w_px=22)], GOOD) == 1

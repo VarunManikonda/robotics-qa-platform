@@ -30,6 +30,8 @@ class Detection:
     area_px: int
     x: float  # world coordinates of the block's top-face centre, metres
     y: float
+    w_px: int = 0  # blob bounding box: width (image u) and height (image v) in pixels
+    h_px: int = 0
 
 
 def colour_masks(img: np.ndarray) -> dict[str, np.ndarray]:
@@ -82,7 +84,9 @@ def detect_blocks(
             v = float(pts[:, 0].mean()) + 0.5
             u = float(pts[:, 1].mean()) + 0.5
             x, y = cam.pixel_to_world(u, v, z_top)
-            out.append(Detection(colour, u, v, int(len(pts)), x, y))
+            w_px = int(pts[:, 1].max() - pts[:, 1].min() + 1)
+            h_px = int(pts[:, 0].max() - pts[:, 0].min() + 1)
+            out.append(Detection(colour, u, v, int(len(pts)), x, y, w_px, h_px))
     return sorted(out, key=lambda d: (d.colour, d.x, d.y))
 
 
