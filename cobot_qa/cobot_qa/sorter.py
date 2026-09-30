@@ -45,9 +45,14 @@ def on_any_pad(det: dict) -> bool:
     return any(on_pad(det, p) for p in PADS)
 
 
-def pad_load(dets: list[dict], pad: Pad) -> int:
-    """How many detected blocks already sit on this pad (= the next free slot index)."""
-    return sum(1 for d in dets if on_pad(d, pad))
+def pad_load(dets: list[dict], pad: Pad, cam: Camera | None = None) -> int:
+    """How many blocks already sit on this pad (= the next free slot index).
+
+    Counted by blob area, not blob number: cubes in neighbouring slots are only 1 cm apart and can
+    merge into a single blob, which counting blobs would report as one block.
+    """
+    area = sum(d.get("area_px", 0) for d in dets if on_pad(d, pad))
+    return round(area / expected_block_area_px(cam))
 
 
 def next_on_table(dets: list[dict], cam: Camera | None = None) -> dict | None:

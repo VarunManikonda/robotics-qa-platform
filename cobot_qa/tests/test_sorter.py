@@ -131,3 +131,23 @@ def test_ready_waypoint_is_reachable_and_clear_of_the_table():
 
     assert reachable(READY_XYZ)
     assert READY_XYZ[2] >= Z_HOVER
+
+
+def test_pad_load_counts_merged_neighbouring_cubes_by_area():
+    one = expected_block_area_px()
+    merged_two = det("red", GOOD.x, GOOD.y - 0.03, area=int(2 * one + 90))  # two cubes seen as one blob
+    merged_three = det("red", GOOD.x, GOOD.y, area=int(3 * one + 180))
+    assert pad_load([merged_two], GOOD) == 2
+    assert pad_load([merged_three], GOOD) == 3
+    assert pad_load([], GOOD) == 0
+
+
+def test_pad_load_from_a_rendered_pad_with_cubes_in_adjacent_slots():
+    from cobot_qa.cell import Block
+    from cobot_qa.sorter import slot_xy
+
+    blocks = tuple(Block(f"b{i}", BLOCKS[0].rgb, *slot_xy(GOOD, i)) for i in range(3))
+    for n in (1, 2, 3):
+        dets = [{"colour": d.colour, "x": d.x, "y": d.y, "area_px": d.area_px}
+                for d in detect_blocks(render(blocks=blocks[:n]))]
+        assert pad_load(dets, GOOD) == n, n
