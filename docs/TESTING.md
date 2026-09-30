@@ -9,6 +9,11 @@ make lint
 
 CI runs the same per-package, plus lint and a Docker build (`.github/workflows/ci.yml`).
 
+**Troubleshooting: `ModuleNotFoundError: No module named 'yaml'` from `launch_testing`.** This happens when
+ROS 2 is sourced in the same shell: ROS's pytest plugins get auto-loaded inside the venv. `make test`
+already sets `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1`. If you run pytest by hand, use
+`PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m pytest -q`, or open a shell without ROS sourced.
+
 ## 2. ROS 2 runbook (Ubuntu 24.04, ROS 2 Jazzy)
 
 **Status: these steps have not been executed by the author of this repo.** The nodes compile

@@ -35,6 +35,9 @@ make demo                  # posts cobot + AMR results, saves docs/amr_detection
 
 Open http://127.0.0.1:8000 and try the project / status / search filters.
 
+If ROS 2 is sourced in your shell, `make test` still works (it disables pytest plugin auto-loading);
+see the troubleshooting note in [docs/TESTING.md](docs/TESTING.md) if you run pytest directly.
+
 ## Dashboard API
 
 ```
