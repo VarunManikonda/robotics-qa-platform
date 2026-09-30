@@ -4,7 +4,7 @@ import xml.etree.ElementTree as ET
 
 import pytest
 
-from cobot_qa.cell import BLOCK_MASS, BLOCK_SIZE, BLOCKS, PAD_SIZE, PADS, all_models, block_sdf, pad_sdf
+from cobot_qa.cell import BLOCK_SIZE, BLOCKS, PAD_SIZE, PADS, all_models, block_sdf, pad_sdf
 from cobot_qa.kinematics import reachable
 from cobot_qa.spawn_cell import build_remove_commands, build_spawn_commands
 
@@ -50,15 +50,14 @@ def test_exactly_one_defective_block_and_it_is_not_red():
 
 
 @pytest.mark.parametrize("block", BLOCKS, ids=lambda b: b.name)
-def test_block_sdf_is_valid_xml_with_expected_physics(block):
+def test_block_sdf_is_valid_static_visual_model(block):
     root = ET.fromstring(block_sdf(block))
     assert root.tag == "sdf"
     model = root.find("model")
     assert model.get("name") == block.name
-    assert float(model.find("link/inertial/mass").text) == BLOCK_MASS
-    ixx = float(model.find("link/inertial/inertia/ixx").text)
-    assert ixx == pytest.approx(BLOCK_MASS * BLOCK_SIZE**2 / 6, rel=1e-3)
-    size = model.find("link/collision/geometry/box/size").text.split()
+    assert model.find("static").text == "true"  # moved only by teleport, so it can never be knocked away
+    assert model.find("link/collision") is None
+    size = model.find("link/visual/geometry/box/size").text.split()
     assert [float(s) for s in size] == [BLOCK_SIZE] * 3
 
 
@@ -92,8 +91,7 @@ def test_remove_commands_target_the_same_names():
     assert spawned == removed
 
 
-def test_blocks_have_gravity_off_so_teleport_carry_cannot_build_up_speed():
-    from cobot_qa.cell import block_sdf
-
+def test_blocks_are_static_so_they_have_no_velocity_to_leak_when_teleported():
     for b in BLOCKS:
-        assert "<gravity>false</gravity>" in block_sdf(b), b.name
+        root = ET.fromstring(block_sdf(b))
+        assert root.find("model/static").text == "true", b.name

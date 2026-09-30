@@ -72,28 +72,17 @@ def _material(rgb: tuple[float, float, float]) -> str:
 
 
 def _block_model(block: Block, pose: tuple[float, float, float] | None = None) -> str:
-    # Gravity is off on purpose: the sorter "carries" a block by teleporting it every 50 ms, and Gazebo
-    # keeps a teleported body's velocity, so with gravity on a long carry builds up enough downward speed
-    # to drop the block through the floor on release (seen on the real simulation).
+    """Static, visual-only cube. The sorter moves it by teleporting (set_pose), never by physics.
+
+    A dynamic block was tried first and failed on the real simulation: Gazebo keeps a teleported body's
+    velocity, so with gravity on a long carry dropped the block through the floor, and with gravity off any
+    bump sent it sliding away forever. A static model has no velocity at all and cannot be knocked.
+    """
     a = BLOCK_SIZE
-    inertia = BLOCK_MASS * a * a / 6.0  # solid cube
     pose_xml = f"\n    <pose>{pose[0]} {pose[1]} {pose[2]} 0 0 0</pose>" if pose else ""
     return f"""  <model name="{block.name}">{pose_xml}
+    <static>true</static>
     <link name="link">
-      <gravity>false</gravity>
-      <inertial>
-        <mass>{BLOCK_MASS}</mass>
-        <inertia>
-          <ixx>{inertia:.6e}</ixx><iyy>{inertia:.6e}</iyy><izz>{inertia:.6e}</izz>
-          <ixy>0</ixy><ixz>0</ixz><iyz>0</iyz>
-        </inertia>
-      </inertial>
-      <collision name="collision">
-        <geometry><box><size>{a} {a} {a}</size></box></geometry>
-        <surface>
-          <friction><ode><mu>1.0</mu><mu2>1.0</mu2></ode></friction>
-        </surface>
-      </collision>
       <visual name="visual">
         <geometry><box><size>{a} {a} {a}</size></box></geometry>
         {_material(block.rgb)}
