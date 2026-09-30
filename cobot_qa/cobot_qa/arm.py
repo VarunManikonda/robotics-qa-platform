@@ -124,6 +124,7 @@ class ArmDriver:
             return False
         if seconds is None:
             seconds = max(2.5, min(14.0, delta / 0.4))
+        self.log.info(f"move: {delta:.2f} rad in {seconds:.1f} s")
         goal = FollowJointTrajectory.Goal()
         goal.trajectory.joint_names = JOINTS
         pt = JointTrajectoryPoint()
@@ -144,12 +145,20 @@ class ArmDriver:
             return False
         result = rfut.result().result
         if result.error_code != 0:
-            self.log.error(f"controller error {result.error_code}: {result.error_string}")
+            short = max(abs(a - b) for a, b in zip(q, self.joints(), strict=True))
+            self.log.error(f"controller error {result.error_code}: {result.error_string} "
+                           f"(arm is {short:.2f} rad from the target)")
         return result.error_code == 0
 
     def move_to(self, x: float, y: float, z: float) -> bool:
-        q = self.ik(x, y, z)
-        if q is None:
-            self.log.error(f"no IK solution for ({x:.3f}, {y:.3f}, {z:.3f})")
-            return False
-        return self.move_joints(q)
+        for attempt in (1, 2):
+            q = self.ik(x, y, z)
+            if q is None:
+                self.log.error(f"no IK solution for ({x:.3f}, {y:.3f}, {z:.3f})")
+                return False
+            if self.move_joints(q):
+                return True
+            if attempt == 1:
+                self.log.warning("move failed; settling and retrying once from where the arm is")
+                self.spin_for(1.5)
+        return False
