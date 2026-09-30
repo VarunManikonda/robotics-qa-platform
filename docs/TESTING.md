@@ -76,3 +76,25 @@ but not the injected one; use an open area in the world.
 
 Convert the checks above into `launch_testing` tests that start the simulation, wait for a
 `pass` run, inject the fault, and assert a `fail` run appears within a time budget.
+
+## 4. Arm workcell in Gazebo (UR5e + MoveIt)
+
+Run the standard simulation, then add the cell into the running world. Layout and SDF generation are
+unit-tested (reach, spacing, physics values); spawning itself needs Gazebo and has been verified only by
+the steps below.
+
+```bash
+# terminal 1: simulation (standard launcher, unchanged)
+source /opt/ros/jazzy/setup.bash
+QT_QPA_PLATFORM=xcb ros2 launch ur_simulation_gz ur_sim_moveit.launch.py ur_type:=ur5e
+
+# terminal 2: add / remove the cell
+source /opt/ros/jazzy/setup.bash
+cd cobot_qa && python3 -m cobot_qa.spawn_cell spawn      # 3 red blocks, 1 blue block, 2 pads
+python3 -m cobot_qa.spawn_cell remove                    # clean up before re-spawning
+```
+
+Expected: `6/6 succeeded`; in Gazebo, four cubes in front of the arm and a green and an orange square on the
+floor. `ur_sim_moveit.launch.py` does not forward a `world_file` argument, which is why objects are spawned
+into the running world instead of loading a custom world.
+
