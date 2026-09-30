@@ -1,4 +1,4 @@
-"""Small helper around MoveIt's IK service and the joint trajectory controller.
+"""Small helper around the joint trajectory controller, with our own deterministic IK.
 
 Used by sort_node. NOT run in the development sandbox (no ROS 2 there); see docs/TESTING.md.
 """
@@ -7,24 +7,20 @@ from __future__ import annotations
 
 import time
 
-import numpy as np
 import rclpy
 from builtin_interfaces.msg import Duration
 from control_msgs.action import FollowJointTrajectory
-from geometry_msgs.msg import PoseStamped
-from moveit_msgs.srv import GetPositionIK
 from rclpy.action import ActionClient
 from rclpy.node import Node
 from sensor_msgs.msg import JointState
 from trajectory_msgs.msg import JointTrajectoryPoint
 
-from .hover import DOWN_QUAT
+from .ik import solve
 from .kinematics import fk, nearest_equivalent
 
 JOINTS = ["shoulder_pan_joint", "shoulder_lift_joint", "elbow_joint",
           "wrist_1_joint", "wrist_2_joint", "wrist_3_joint"]
 CONTROLLER = "/scaled_joint_trajectory_controller/follow_joint_trajectory"
-MOVEIT_OK = 1
 MAX_JOINT_STEP = 4.0  # rad; a bigger single move usually means IK flipped to another arm configuration
 TICK_S = 0.05  # on_tick is called at 20 Hz while a move runs
 
@@ -41,7 +37,6 @@ class ArmDriver:
         self.on_tick = None  # optional callable, run every TICK_S while waiting
         self._last_tick = 0.0
         node.create_subscription(JointState, "/joint_states", self._on_js, 1)
-        self._ik = node.create_client(GetPositionIK, "/compute_ik")
         self._traj = ActionClient(node, FollowJointTrajectory, CONTROLLER)
 
     def _on_js(self, msg: JointState) -> None:
@@ -73,9 +68,6 @@ class ArmDriver:
         if not self.wait_until(lambda: self.js is not None, timeout):
             self.log.error("no /joint_states")
             return False
-        if not self._ik.wait_for_service(timeout_sec=timeout):
-            self.log.error("/compute_ik not available (is MoveIt running?)")
-            return False
         if not self._traj.wait_for_server(timeout_sec=timeout):
             self.log.error("trajectory controller not available")
             return False
@@ -92,30 +84,9 @@ class ArmDriver:
 
     # ------------------------------------------------------------ motion
     def ik(self, x: float, y: float, z: float) -> list[float] | None:
-        """Joint angles that put tool0 at (x, y, z) pointing down, checked against our own FK."""
-        req = GetPositionIK.Request()
-        r = req.ik_request
-        r.group_name = "ur_manipulator"
-        r.ik_link_name = "tool0"
-        r.avoid_collisions = False
-        r.timeout = Duration(sec=2)
-        r.robot_state.joint_state = self.js
-        ps = PoseStamped()
-        ps.header.frame_id = "base_link"
-        ps.pose.position.x, ps.pose.position.y, ps.pose.position.z = x, y, z
-        (ps.pose.orientation.x, ps.pose.orientation.y,
-         ps.pose.orientation.z, ps.pose.orientation.w) = DOWN_QUAT
-        r.pose_stamped = ps
-        fut = self._ik.call_async(req)
-        if not self.wait_until(fut.done, 10.0):
-            return None
-        res = fut.result()
-        if res is None or res.error_code.val != MOVEIT_OK:
-            return None
-        sol = dict(zip(res.solution.joint_state.name, res.solution.joint_state.position, strict=False))
-        q = nearest_equivalent([sol[j] for j in JOINTS], self.joints())
-        err = float(np.linalg.norm(fk(q)[:3, 3] - np.array([x, y, z])))
-        return q if err < 0.005 else None
+        """Joint angles for tool0 at (x, y, z), pointing down; always the same arm configuration."""
+        q = solve(x, y, z)
+        return None if q is None else nearest_equivalent(q, self.joints())
 
     def move_joints(self, q, seconds: float | None = None) -> bool:
         delta = max(abs(a - b) for a, b in zip(q, self.joints(), strict=True))
