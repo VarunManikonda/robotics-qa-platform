@@ -95,6 +95,7 @@ def test_launch_file_forwards_world_and_bridges_the_image():
     assert '"world_file": world_file' in src  # the argument ur_sim_moveit.launch.py drops
     assert "ur_sim_control.launch.py" in src and "ur_moveit.launch.py" in src
     assert "/overhead/image@sensor_msgs/msg/Image[gz.msgs.Image" in src
+    assert "/world/empty/set_pose@ros_gz_interfaces/srv/SetEntityPose" in src
 
 
 # ---------------------------------------------------------------- detection

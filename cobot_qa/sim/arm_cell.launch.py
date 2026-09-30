@@ -59,6 +59,14 @@ def generate_launch_description():
         output="screen",
     )
 
+    # lets sort_node teleport a block under the tool (the virtual suction cup)
+    pose_bridge = Node(
+        package="ros_gz_bridge",
+        executable="parameter_bridge",
+        arguments=["/world/empty/set_pose@ros_gz_interfaces/srv/SetEntityPose"],
+        output="screen",
+    )
+
     return LaunchDescription(
         [
             DeclareLaunchArgument("ur_type", default_value="ur5e"),
@@ -67,5 +75,6 @@ def generate_launch_description():
             ur_control,
             ur_moveit,
             image_bridge,
+            pose_bridge,
         ]
     )
