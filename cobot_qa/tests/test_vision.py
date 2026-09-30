@@ -192,7 +192,8 @@ def test_orange_colour_is_rejected_by_the_colour_rule_itself():
     """Not just by the blob-size filter: the pad colour must not classify as red at any brightness."""
     for k in (0.6, 1.0, 1.2):
         img = np.zeros((1, 1, 3), dtype=np.uint8)
-        img[0, 0] = tuple(min(255, int(c * k)) for c in washed(tuple(255 * v for v in PADS[1].rgb)))  # pad_reject (orange)
+        orange = washed(tuple(255 * v for v in PADS[1].rgb))  # pad_reject
+        img[0, 0] = tuple(min(255, int(c * k)) for c in orange)
         m = colour_masks(img)
         assert not m["red"][0, 0] and not m["blue"][0, 0], k
 
