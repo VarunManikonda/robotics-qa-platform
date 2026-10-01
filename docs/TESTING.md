@@ -134,3 +134,31 @@ Expected log: `4 blocks: ...` and `vs layout: block_red_1=<few>mm, ...`. The lay
 symmetric, so a mirrored or upside-down image shows up as `MISSING` rather than matching by accident.
 Errors of a few millimetres are expected (side faces of off-axis cubes are visible from above).
 
+
+## 6. Sorting cycle with dashboard reporting
+
+Four terminals. Terminals 1, 2 and 4 must NOT have the Python venv active; terminal 3 (the dashboard) does.
+
+```bash
+# terminal 1: simulator (Gazebo + MoveIt + RViz + camera and pose bridges)
+source /opt/ros/jazzy/setup.bash
+QT_QPA_PLATFORM=xcb ros2 launch <repo>/cobot_qa/sim/arm_cell.launch.py
+
+# terminal 2: block detector
+source /opt/ros/jazzy/setup.bash && cd <repo>/cobot_qa
+PYTHONNOUSERSITE=1 python3 -m cobot_qa.detect_node
+
+# terminal 3: dashboard (venv active)
+cd <repo> && . .venv/bin/activate && make serve        # http://127.0.0.1:8000
+
+# terminal 4: sorter
+source /opt/ros/jazzy/setup.bash && cd <repo>/cobot_qa
+PYTHONNOUSERSITE=1 python3 -m cobot_qa.sort_node --ros-args -p max_blocks:=4
+```
+
+Optional first: `-p check_only:=true` solves IK for every block and pad pose without moving the arm.
+
+Expected: for each part a line `block_...: (x, y) -> pad_good slot N`, three `step '...' done` lines,
+`dashboard: posted - ...`, and finally `sorted 4 block(s)`. The dashboard shows four `part:block_...` rows
+under `cobot_qa`: three `pass` (red, good pad, slots 0 to 2) and one `fail` (blue, reject pad: correctly
+rejected). Reset the cell between runs with `python3 -m cobot_qa.spawn_cell remove` then `spawn`.

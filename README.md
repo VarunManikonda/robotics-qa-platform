@@ -6,7 +6,7 @@ scenarios and one shared run-history dashboard.
 | Package | What it does | Robot / stack |
 |---|---|---|
 | `dashboard/` | FastAPI + SQLite run-history service with progressive filtering, keyset pagination, stats and a small web UI | any client that can POST JSON |
-| `cobot_qa/` | Inspection-and-sort cell for a 6-DOF arm: independent UR5e forward kinematics, reachability pre-flight, workcell world with an overhead camera, colour-based block detection, part inspection, and a ROS 2 node that cross-checks FK against TF | Universal Robots UR5e, ROS 2 Jazzy, MoveIt 2, Gazebo |
+| `cobot_qa/` | Inspection-and-sort cell for a 6-DOF arm: independent UR5e forward kinematics and a deterministic inverse-kinematics solver, workcell world with an overhead camera, colour-based block detection, a sort node that picks each part (virtual suction cup) and places it in the good or reject bin, and per-part reporting to the dashboard | Universal Robots UR5e, ROS 2 Jazzy, MoveIt 2, Gazebo Harmonic |
 | `amr_health/` | Streaming anomaly detector (frozen baseline + spike + CUSUM) for AMR health signals, a velocity-tracking monitor node, and a fault injector to prove detection | Nav2 / TurtleBot3 on ROS 2 Jazzy |
 
 ## Why this exists
@@ -27,7 +27,7 @@ verification. This repo shows the layer that is often missing:
 ```bash
 make setup                 # creates .venv and installs dependencies
 . .venv/bin/activate
-make test                  # 76 tests across the three packages
+make test                  # 215 tests across the three packages
 make lint                  # ruff
 make serve                 # dashboard on http://127.0.0.1:8000  (terminal 1)
 make demo                  # posts cobot + AMR results, saves docs/amr_detection.png (terminal 2)
@@ -58,22 +58,28 @@ ROS 2 Jazzy machine; the exact steps are in [docs/TESTING.md](docs/TESTING.md).
 
 ## What has and has not been verified
 
-* Verified in CI and locally: dashboard API, UR5e FK against a four-pose answer key, reachability,
-  inspection and mission logic, workcell layout and world file, camera geometry, block detection on
-  synthetic images (with mutation checks that the tests catch mirrored/flipped cameras), and the
+* Verified in CI and locally: dashboard API, UR5e FK against a four-pose answer key, the deterministic
+  IK solver (25 cell poses, accuracy, joint limits, floor clearance, one arm configuration for all of them),
+  reachability, inspection and mission logic, workcell layout and world file, camera geometry, block
+  detection on synthetic images (with mutation checks that the tests catch mirrored/flipped cameras), the
+  sorting plan (targets, slots, destination), the dashboard report builder and HTTP client, and the
   anomaly detector (false alarms, step, drift, spike).
-* Verified on a ROS 2 Jazzy machine by the repo owner: the UR5e simulation with MoveIt (Plan & Execute),
-  `fk_monitor_node` against the Gazebo simulation (45 consecutive `pass` rows, error below 0.001 mm),
-  and `spawn_cell` (6 of 6 objects created).
-* **Not yet run on real ROS 2 / Gazebo:** `arm_cell.launch.py` with the camera world, the image bridge,
-  `detect_node.py`, `monitor_node.py`, `fault_injector_node.py`. Steps are in [docs/TESTING.md](docs/TESTING.md).
-* Sensor data in the anomaly demos is synthetic. Detector settings should be re-tuned on real recordings.
+* Verified on a ROS 2 Jazzy / Gazebo Harmonic machine by the repo owner: the UR5e simulation with MoveIt,
+  `fk_monitor_node` against Gazebo (45 consecutive `pass` rows, error below 0.001 mm), `spawn_cell`,
+  the overhead camera (about 8 Hz) and `detect_node` (all four blocks within 1.0 to 2.6 mm of the layout),
+  and the full sort cycle: all red parts to the green pad in separate slots, the blue part to the reject pad.
+* Posting each sorted part to the dashboard is unit-tested and was checked against the real dashboard app
+  over HTTP; the live-arm run of that step is documented in docs/TESTING.md section 6.
+* **Not yet run on real ROS 2 / Gazebo:** `monitor_node.py`, `fault_injector_node.py` (the AMR half).
+* The "suction gripper" is simulated: the held block is teleported under the tool 20 times a second.
+  There is no contact physics for grasping. Sensor data in the anomaly demos is synthetic. Detector
+  settings should be re-tuned on real recordings.
 
 ## Repository layout
 
 ```
 dashboard/   FastAPI service + tests
-cobot_qa/    kinematics, cell layout, world + camera, detector, inspector, mission, ROS nodes, sim/ launch + tests
+cobot_qa/    kinematics + IK, cell layout, world + camera, detector, sorter, dashboard reporting, ROS nodes, sim/ launch + tests
 amr_health/  detector, simulator, ROS nodes + tests
 scripts/     offline end-to-end demo
 docs/        architecture, ROS testing runbook, standards mapping
@@ -83,6 +89,8 @@ docs/        architecture, ROS testing runbook, standards mapping
 ## Roadmap
 
 1. Package the ROS nodes as ament packages with `launch_testing` integration tests.
-2. Replace the synthetic inspector image with frames from the simulated wrist camera.
-3. Add a real motor-current / effort signal to the AMR monitor on hardware.
-4. Add authentication and Postgres to the dashboard for multi-user deployments.
+2. Inspect parts from camera crops (the inspector already works on images) instead of by colour alone.
+3. Collision-aware planning with MoveIt between waypoints, and a real gripper model (vacuum plugin or
+   contact-based grasp) instead of the teleport-held block.
+4. Add a real motor-current / effort signal to the AMR monitor on hardware.
+5. Add authentication and Postgres to the dashboard for multi-user deployments.

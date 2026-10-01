@@ -77,3 +77,19 @@ changes and thermal drift, so re-run the sweep on recorded data before trusting 
 * Stationary-baseline assumption: call `reset()` after maintenance or a duty-cycle change.
 * Single-signal, single-robot. Multi-signal fusion and per-mode baselines are future work.
 * No root-cause classification; it says "something changed", not why.
+
+
+## Lessons from running it in simulation
+
+Three problems were invisible to unit tests and only appeared when the arm ran in Gazebo. Each now has
+a regression test for the part that can be tested offline.
+
+| What happened | Cause | Fix |
+|---|---|---|
+| A carried block fell through the floor on release | Gazebo keeps a teleported body's velocity, so 20 teleports a second under gravity built up huge downward speed | Blocks are static, visual-only models moved only by teleport (`cell.py`, tested) |
+| A block bumped by the arm slid away and was lost (an intermediate fix had removed gravity) | With gravity off there is no floor friction either | Same fix: a static model has no velocity to leak |
+| Moves to the same waypoint were 2.94 rad one time and 1.91 rad the next, and the second one stalled the arm (controller error -4) | MoveIt's `/compute_ik` returned different arm configurations for the same pose | `ik.py`: a deterministic solver that walks to the target from a fixed nominal configuration, so every pose is reached in the same configuration (tested over all 25 cell poses, with a mutation check) |
+
+Also found by running: the camera sees the arm's own body, so the sorter parks the arm before every
+detection and ignores blobs smaller than 85 % of a whole block; neighbouring cubes 1 cm apart merge into
+one blob, so cubes on a pad are counted from blob width, not blob number.
