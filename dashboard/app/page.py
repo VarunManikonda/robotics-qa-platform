@@ -63,7 +63,7 @@ dialog::backdrop{background:rgba(0,0,0,.4)}
 dl{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;margin:10px 0}dt{color:var(--muted)}dd{margin:0}
 pre{background:var(--bg);padding:8px;border-radius:6px;overflow:auto;font-size:12px}
 details summary{cursor:pointer;color:var(--ink2)}
-@media (max-width:600px){.banner .head{font-size:20px}th:nth-child(4),td:nth-child(4){display:none}}
+@media (max-width:600px){.banner .head{font-size:20px}th:nth-child(5),td:nth-child(5){display:none}}
 </style></head><body><main>
 
 <div class="top">
@@ -92,11 +92,14 @@ details summary{cursor:pointer;color:var(--ink2)}
 <div class="card"><h2>Everything the robot did</h2>
  <div class="sub">Click any row to see the details of that event.</div>
  <div class="bar">
+  <select id="robot" onchange="loadTable(true)">
+   <option value="">All robots</option><option value="cobot_qa">Robot arm only</option>
+   <option value="amr_health">Mobile robot only</option></select>
   <select id="show" onchange="loadTable(true)">
    <option value="">Show everything</option><option value="problems">Show problems only</option></select>
   <input id="q" placeholder="Search, e.g. red_1" oninput="debounceLoad()">
  </div>
- <table><thead><tr><th>When</th><th>What</th><th>Result</th><th>Detail</th></tr></thead>
+ <table><thead><tr><th>When</th><th>Robot</th><th>What</th><th>Result</th><th>Detail</th></tr></thead>
   <tbody id="rows"></tbody></table>
  <div class="bar"><button id="more" onclick="loadTable(false)" hidden>Show older</button></div>
 </div>
@@ -129,17 +132,28 @@ function ago(iso){
 }
 const clock=iso=>new Date(iso).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'});
 
+const ROBOT={cobot_qa:'Robot arm',amr_health:'Mobile robot'};
 function describe(r){            // plain-language label for any run
+  const robot=ROBOT[r.project]||r.project;
   const isPart=r.project==='cobot_qa'&&r.name.startsWith('part:');
   if(isPart){
     const nm=r.name.slice(5);
-    if(r.status==='pass')return {what:'Sorted '+nm,label:'✓ Good part',cls:'ok'};
-    if(r.status==='fail')return {what:'Sorted '+nm,label:'◆ Defect - rejected',cls:'info'};
-    return {what:'Tried to sort '+nm,label:'! Could not move',cls:'warn'};
+    if(r.status==='pass')return {robot,what:'Sorted '+nm,label:'✓ Good part',cls:'ok'};
+    if(r.status==='fail')return {robot,what:'Sorted '+nm,label:'◆ Defect - rejected',cls:'info'};
+    return {robot,what:'Tried to sort '+nm,label:'! Could not move',cls:'warn'};
   }
-  if(r.status==='pass')return {what:r.name,label:'✓ OK',cls:'ok'};
-  if(r.status==='fail')return {what:r.name,label:'✕ Problem',cls:'bad'};
-  return {what:r.name,label:'! Warning',cls:'warn'};
+  if(r.name==='nav_goal'){
+    const xy=(r.payload&&r.payload.goal_xy_m)?' ('+r.payload.goal_xy_m.join(', ')+')':'';
+    if(r.status==='pass')return {robot,what:'Drove to a goal'+xy,label:'✓ Reached',cls:'ok'};
+    return {robot,what:'Drove to a goal'+xy,label:'! Not reached',cls:'warn'};
+  }
+  if(r.name==='velocity_tracking'){
+    if(r.status==='pass')return {robot,what:'Wheel-speed check',label:'✓ Monitoring started',cls:'ok'};
+    return {robot,what:'Wheel-speed check',label:'✕ Not moving as told',cls:'bad'};
+  }
+  if(r.status==='pass')return {robot,what:r.name,label:'✓ OK',cls:'ok'};
+  if(r.status==='fail')return {robot,what:r.name,label:'✕ Problem',cls:'bad'};
+  return {robot,what:r.name,label:'! Warning',cls:'warn'};
 }
 
 async function loadSummary(){
@@ -217,6 +231,7 @@ async function loadTable(reset){
   if(reset){cursor=null;loadedMore=false;$('rows').innerHTML=''} else loadedMore=true;
   const p=new URLSearchParams({limit:15});
   if($('show').value==='problems')p.set('problems','true');
+  if($('robot').value)p.set('project',$('robot').value);
   const q=$('q').value.trim();if(q)p.set('q',q);
   if(cursor)p.set('cursor',cursor);
   const r=await (await fetch('/runs?'+p)).json();
@@ -224,10 +239,10 @@ async function loadTable(reset){
     const d=describe(i);
     $('rows').insertAdjacentHTML('beforeend',
      `<tr data-id="${i.id}"><td title="${esc(i.created_at)}">${esc(clock(i.created_at))}<div class="sub">${esc(ago(i.created_at))}</div></td>
-      <td>${esc(d.what)}</td><td class="res ${d.cls}">${esc(d.label)}</td><td>${esc(i.message)}</td></tr>`);
+      <td><b>${esc(d.robot)}</b></td><td>${esc(d.what)}</td><td class="res ${d.cls}">${esc(d.label)}</td><td>${esc(i.message)}</td></tr>`);
   }
   cursor=r.next_cursor;$('more').hidden=!cursor;
-  if(!$('rows').children.length)$('rows').innerHTML='<tr><td colspan="4" class="sub">Nothing to show.</td></tr>';
+  if(!$('rows').children.length)$('rows').innerHTML='<tr><td colspan="5" class="sub">Nothing to show.</td></tr>';
 }
 $('rows').addEventListener('click',async e=>{
   const tr=e.target.closest('tr[data-id]');if(!tr)return;
@@ -235,7 +250,7 @@ $('rows').addEventListener('click',async e=>{
   const d=describe(r),pl=r.payload||{};
   const row=(k,v)=>v==null||v===''?'':`<dt>${k}</dt><dd>${esc(v)}</dd>`;
   $('dlgbody').innerHTML=`<h2>${esc(d.what)}</h2><div class="res ${d.cls}">${esc(d.label)}</div>
-   <dl>${row('When',new Date(r.created_at).toLocaleString())}${row('Source',r.project)}
+   <dl>${row('When',new Date(r.created_at).toLocaleString())}${row('Robot',d.robot)}
    ${row('Went to',pl.bin&&({good:'Good bin',reject:'Reject bin',skipped:'Stayed on the table'})[pl.bin])}
    ${row('Colour',pl.colour)}${row('Time taken',pl.cycle_time_s!=null?pl.cycle_time_s+' s':'')}
    ${row('Position check',pl.layout_error_mm!=null?pl.layout_error_mm+' mm from expected':'')}

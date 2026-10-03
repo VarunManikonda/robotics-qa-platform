@@ -152,3 +152,8 @@ def test_summary_ignores_runs_older_than_the_window(tmp_path):
     db.commit()
     db.close()
     assert c.get("/summary", params={"hours": 24}).json()["status"] == "idle"
+
+
+def test_index_names_both_robots_and_has_a_robot_filter(client):
+    html = client.get("/").text
+    assert "Robot arm" in html and "Mobile robot" in html and 'id="robot"' in html
