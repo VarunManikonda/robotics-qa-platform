@@ -162,3 +162,28 @@ Expected: for each part a line `block_...: (x, y) -> pad_good slot N`, three `st
 `dashboard: posted - ...`, and finally `sorted 4 block(s)`. The dashboard shows four `part:block_...` rows
 under `cobot_qa`: three `pass` (red, good pad, slots 0 to 2) and one `fail` (blue, reject pad: correctly
 rejected). Reset the cell between runs with `python3 -m cobot_qa.spawn_cell remove` then `spawn`.
+
+## 7. AMR demo: Nav2 patrol, fault injection, dashboard
+
+Three terminals. Terminals 2 must NOT have the Python venv active; terminals 1 and 3 do.
+
+```bash
+# terminal 1 (venv): dashboard
+cd <repo> && rm -f dashboard/qa_runs.sqlite3 && source .venv/bin/activate
+cd dashboard && uvicorn app.main:create_app --factory --port 8000
+
+# terminal 2 (no venv): Nav2 + TurtleBot3 + injector + monitor + patrol
+source /opt/ros/jazzy/setup.bash
+export TURTLEBOT3_MODEL=waffle QT_QPA_PLATFORM=xcb PYTHONNOUSERSITE=1
+cd <repo> && ros2 launch amr_health/sim/amr_demo.launch.py laps:=6
+
+# terminal 3 (venv, optional): example arm data on the same page
+cd <repo> && python3 scripts/seed_demo.py --scenario healthy
+```
+
+Signal path: Nav2 publishes its final command on `/cmd_vel_raw` (the launch file rewrites the Nav2 params to do
+that), the fault injector relays it to `/cmd_vel`, and the monitor compares `/cmd_vel_raw` with `/odom`.
+Expected: goals reach the dashboard within seconds, "Monitoring started" appears after about 20 s of driving, and
+the banner turns red about a minute after the first move. Use `fault_after_s:=99999` for a healthy run.
+Do not delete `qa_runs.sqlite3` while the dashboard is running; stop it first.
+

@@ -57,6 +57,16 @@ new runs arrive.
 The core logic is pure Python and fully tested. The ROS 2 nodes are thin wrappers and need a
 ROS 2 Jazzy machine; the exact steps are in [docs/TESTING.md](docs/TESTING.md).
 
+## What it looks like
+
+Healthy, with the mobile robot reporting goals:
+
+![Dashboard, healthy](docs/images/dashboard_amr_healthy.png)
+
+After the injected wheel fault is caught (arm and mobile robot on the same page):
+
+![Dashboard, fault detected](docs/images/dashboard_fault_detected.png)
+
 ## What has and has not been verified
 
 * Verified in CI and locally: dashboard API, UR5e FK against a four-pose answer key, the deterministic
@@ -71,7 +81,11 @@ ROS 2 Jazzy machine; the exact steps are in [docs/TESTING.md](docs/TESTING.md).
   and the full sort cycle: all red parts to the green pad in separate slots, the blue part to the reject pad.
 * Posting each sorted part to the dashboard is unit-tested and was checked against the real dashboard app
   over HTTP; the live-arm run of that step is documented in docs/TESTING.md section 6.
-* **Not yet run on real ROS 2 / Gazebo:** `monitor_node.py`, `fault_injector_node.py` (the AMR half).
+* Verified on the same machine, AMR half: Nav2 + TurtleBot3 in Gazebo patrolling by itself through
+  `goal_runner_node` (10 of 10 goals reached and posted), `monitor_node` learning its baseline, and the
+  dashboard turning red with "The mobile robot is not moving the way it was told to" about 70 s after the robot
+  started driving, which matches the 60 s fault-injector delay. Both robots appear on one dashboard.
+  Run steps: docs/TESTING.md section 7.
 * The "suction gripper" is simulated: the held block is teleported under the tool 20 times a second.
   There is no contact physics for grasping. Sensor data in the anomaly demos is synthetic. Detector
   settings should be re-tuned on real recordings.
