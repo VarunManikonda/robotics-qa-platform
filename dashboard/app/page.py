@@ -196,12 +196,11 @@ function drawChart(parts){
      aria-label="Time per part in seconds for the last ${pts.length} parts">
     ${g}
     <line x1="${L}" x2="${W-R}" y1="${y(avg)}" y2="${y(avg)}" stroke="var(--muted)" stroke-dasharray="5 4"></line>
-    <g class="axis"><text x="${W-R}" y="${y(avg)-5}" text-anchor="end">average ${avg.toFixed(1)} s</text>
-     <text x="${L}" y="${H-8}">older</text><text x="${W-R}" y="${H-8}" text-anchor="end">newer</text></g>
+    <g class="axis"><text x="${L}" y="${H-8}">older</text><text x="${W-R}" y="${H-8}" text-anchor="end">newer</text></g>
     <path d="${line}" fill="none" stroke="var(--series)" stroke-width="2"></path>
     ${pts.map(mark).join('')}${hits}</svg>`;
   $('legend').innerHTML=
-    '<span>● Good part</span><span>◇ Defect - rejected</span><span style="color:var(--bad)">✕ Could not move</span>';
+    '<span>- - average '+avg.toFixed(1)+' s</span><span>● Good part</span><span>◇ Defect - rejected</span><span style="color:var(--bad)">✕ Could not move</span>';
   const tip=$('tip');
   el.querySelectorAll('.hit').forEach(c=>{
     c.addEventListener('pointermove',e=>{

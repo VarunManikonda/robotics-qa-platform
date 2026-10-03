@@ -53,7 +53,7 @@ def seed(url: str, scenario: str, seed_value: int = 7) -> int:
     random.seed(seed_value)
     sent = 0
     for n in range(1, 31):                                   # a normal stretch of work
-        bad = random.random() < 0.08
+        bad = n in (7, 19)                                   # an ordinary defect rate (~7%)
         post(url, part(n, bad, random.gauss(4.0, 0.12)))
         sent += 1
     if scenario == "slowing":
