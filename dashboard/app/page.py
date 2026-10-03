@@ -155,7 +155,8 @@ async function loadSummary(){
     kp(t.good,'Good parts','Sorted into the good bin')+
     kp(t.defects,'Defects caught','Bad parts the robot rejected. This is normal.')+
     kp(t.stuck,'Could not move','Parts the arm failed to pick')+
-    kp(t.avg_cycle_s==null?'-':t.avg_cycle_s+' s','Average time per part','How long one pick-and-place takes');
+    kp(t.avg_cycle_s==null?'-':t.avg_cycle_s+' s','Average time per part','How long one pick-and-place takes')+
+    (t.goals?kp(t.goals_reached+' of '+t.goals,'Mobile robot goals reached','Places the mobile robot was sent to'):'');
   $('attention').innerHTML=s.attention.length?s.attention.map(i=>`
     <div class="item ${i.severity}">
      <div class="t"><span class="tag ${i.severity}">${i.severity==='critical'?'ACT NOW':'CHECK SOON'}</span>${esc(i.title)}</div>

@@ -23,9 +23,9 @@ class FaultInjector(Node):
         self.declare_parameter("in_topic", "/cmd_vel_raw")
         self.declare_parameter("out_topic", "/cmd_vel")
         self.declare_parameter("stamped", False)
-        self.declare_parameter("fault_after_s", 60.0)
+        self.declare_parameter("fault_after_s", 60.0)  # seconds after the first command
         self.declare_parameter("scale", 0.6)
-        self._t0 = self.get_clock().now()
+        self._t0 = None  # the fault clock starts at the first command, not at launch
         msg_t = TwistStamped if self.get_parameter("stamped").value else Twist
         self._stamped = bool(self.get_parameter("stamped").value)
         self._pub = self.create_publisher(msg_t, self.get_parameter("out_topic").value, 10)
@@ -33,6 +33,8 @@ class FaultInjector(Node):
         self._announced = False
 
     def _on_cmd(self, msg) -> None:
+        if self._t0 is None:
+            self._t0 = self.get_clock().now()
         elapsed = (self.get_clock().now() - self._t0).nanoseconds * 1e-9
         active = elapsed >= float(self.get_parameter("fault_after_s").value)
         if active and not self._announced:

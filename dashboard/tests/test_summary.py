@@ -97,3 +97,21 @@ def test_critical_items_are_listed_first():
 def test_recent_parts_capped_to_latest():
     s = summarise([part(i) for i in range(1, 80)])
     assert len(s["recent_parts"]) == 40 and s["recent_parts"][-1]["id"] == 79
+
+
+def goal(i, status="pass", secs=20.0):
+    return {
+        "id": i, "project": "amr_health", "name": "nav_goal", "status": status, "metric": secs,
+        "message": "reached (0.55, 0.55) in 20.0 s" if status == "pass" else "goal (0.55, 0.55) aborted",
+        "payload": {}, "created_at": "2026-10-03T08:10:00.000Z",
+    }
+
+
+def test_navigation_goals_are_counted_and_failures_are_explained():
+    ok = summarise([goal(1), goal(2, secs=30.0)])
+    assert ok["status"] == "green"
+    assert (ok["totals"]["goals"], ok["totals"]["goals_reached"], ok["totals"]["avg_goal_s"]) == (2, 2, 25.0)
+    bad = summarise([goal(1), goal(2, status="warn")])
+    assert bad["status"] == "amber"
+    assert "navigation goal" in bad["attention"][0]["title"]
+    assert bad["totals"]["goals_reached"] == 1

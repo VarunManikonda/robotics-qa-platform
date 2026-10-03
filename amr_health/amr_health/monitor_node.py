@@ -23,6 +23,7 @@ from nav_msgs.msg import Odometry
 from rclpy.node import Node
 
 from .detector import Detector
+from .throttle import RateLimiter
 
 
 class TrackingMonitor(Node):
@@ -35,8 +36,10 @@ class TrackingMonitor(Node):
         self.declare_parameter("sample_hz", 10.0)
         self.declare_parameter("min_cmd_mps", 0.05)
         self.declare_parameter("warmup", 200)
+        self.declare_parameter("alert_every_s", 5.0)
 
         self._det = Detector(warmup=int(self.get_parameter("warmup").value))
+        self._limit = RateLimiter(float(self.get_parameter("alert_every_s").value))
         self._cmd_v = 0.0
         self._odom_v = 0.0
         stamped = bool(self.get_parameter("cmd_vel_stamped").value)
@@ -63,7 +66,12 @@ class TrackingMonitor(Node):
         if not was_ready and self._det.ready:
             mean, sd = self._det.baseline
             self.get_logger().info(f"baseline learned: mean={mean:.3f} sd={sd:.3f}")
-        if alert is not None:
+            self._post_async({
+                "project": "amr_health", "name": "velocity_tracking", "status": "pass", "metric": mean,
+                "message": f"monitoring started, normal tracking error {mean:.3f} m/s",
+                "payload": {"mean": mean, "sd": sd},
+            })
+        if alert is not None and self._limit.allow():
             self.get_logger().warn(f"ANOMALY {alert.kind} z={alert.z:.1f} err={err:.3f}")
             body = {
                 "project": "amr_health",
@@ -73,7 +81,10 @@ class TrackingMonitor(Node):
                 "message": f"{alert.kind} (z={alert.z:.1f})",
                 "payload": {"cmd": self._cmd_v, "odom": self._odom_v},
             }
-            threading.Thread(target=self._post, args=(body,), daemon=True).start()
+            self._post_async(body)
+
+    def _post_async(self, body: dict) -> None:
+        threading.Thread(target=self._post, args=(body,), daemon=True).start()
 
     def _post(self, body: dict) -> None:
         url = self.get_parameter("dashboard_url").value + "/runs"

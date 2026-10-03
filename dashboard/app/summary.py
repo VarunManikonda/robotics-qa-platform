@@ -147,6 +147,19 @@ def _monitor_items(others: list[dict]) -> list[dict]:
                     len(rs),
                 )
             )
+    nav_warns = [r for r in warns if r["name"] == "nav_goal"]
+    warns = [r for r in warns if r["name"] != "nav_goal"]
+    if nav_warns:
+        items.append(
+            _item(
+                "warning",
+                f"The mobile robot failed {len(nav_warns)} "
+                f"navigation goal{'s' if len(nav_warns) != 1 else ''}",
+                f"Latest: {nav_warns[-1]['message']}.",
+                "Check the route is clear and the map is up to date, then send the goal again.",
+                len(nav_warns),
+            )
+        )
     if warns:
         items.append(
             _item(
@@ -184,6 +197,8 @@ def summarise(rows: list[dict], hours: int = 24) -> dict[str, Any]:
     stuck = sum(p["status"] == "warn" for p in parts)
     cycles = [c for c in (_cycle(p) for p in parts if p["status"] != "warn") if c is not None]
     handled = good + defects
+    goals = [r for r in others if r["project"] == "amr_health" and r["name"] == "nav_goal"]
+    goal_secs = [r["metric"] for r in goals if r["status"] == "pass" and r["metric"] is not None]
 
     recent = [
         {
@@ -209,6 +224,9 @@ def summarise(rows: list[dict], hours: int = 24) -> dict[str, Any]:
             "defect_rate": (defects / handled) if handled else None,
             "avg_cycle_s": round(mean(cycles), 1) if cycles else None,
             "to_check": len(attention),
+            "goals": len(goals),
+            "goals_reached": sum(r["status"] == "pass" for r in goals),
+            "avg_goal_s": round(mean(goal_secs), 1) if goal_secs else None,
         },
         "attention": attention,
         "recent_parts": recent,
