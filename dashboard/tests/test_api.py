@@ -109,3 +109,46 @@ def test_stats(client):
 def test_index_served(client):
     r = client.get("/")
     assert r.status_code == 200 and "Robotics QA Dashboard" in r.text
+
+
+def test_summary_endpoint_reflects_recent_runs(client):
+    post(client, name="part:block_red_1", status="pass", metric=4.0, payload={"cycle_time_s": 4.0})
+    post(client, name="part:block_blue_1", status="fail", metric=4.2, payload={"cycle_time_s": 4.2})
+    s = client.get("/summary").json()
+    assert s["status"] == "green" and s["totals"]["parts"] == 2 and s["totals"]["defects"] == 1
+    post(client, project="amr_health", name="velocity_tracking", status="fail")
+    assert client.get("/summary").json()["status"] == "red"
+
+
+def test_summary_window_is_validated(client):
+    post(client, project="amr_health", name="velocity_tracking", status="fail")
+    # the run was just created so a 1 hour window sees it; a 0 hour window is rejected
+    assert client.get("/summary", params={"hours": 1}).json()["status"] == "red"
+    assert client.get("/summary", params={"hours": 0}).status_code == 422
+
+
+def test_problems_filter_hides_rejected_parts_but_keeps_real_issues(client):
+    post(client, name="part:a", status="pass")
+    post(client, name="part:b", status="fail")          # correctly rejected: normal
+    post(client, name="part:c", status="warn")           # could not move: a problem
+    post(client, project="amr_health", name="velocity_tracking", status="fail")
+    items = client.get("/runs", params={"problems": "true"}).json()["items"]
+    assert sorted(i["name"] for i in items) == ["part:c", "velocity_tracking"]
+
+
+def test_index_is_plain_language(client):
+    html = client.get("/").text
+    assert "Robot cell status" in html and "What needs your attention" in html
+
+
+def test_summary_ignores_runs_older_than_the_window(tmp_path):
+    import sqlite3
+
+    path = str(tmp_path / "old.sqlite3")
+    c = TestClient(create_app(path))
+    post(c, project="amr_health", name="velocity_tracking", status="fail")
+    db = sqlite3.connect(path)
+    db.execute("UPDATE runs SET created_at='2020-01-01T00:00:00.000Z'")
+    db.commit()
+    db.close()
+    assert c.get("/summary", params={"hours": 24}).json()["status"] == "idle"

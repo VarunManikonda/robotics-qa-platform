@@ -1,4 +1,4 @@
-.PHONY: setup test lint serve demo docker clean
+.PHONY: setup test lint serve demo seed docker clean
 
 # A sourced ROS 2 shell puts ROS's pytest plugins (launch_testing, which needs yaml) on
 # PYTHONPATH, and they crash pytest inside a venv. None of our tests need plugins.
@@ -21,6 +21,9 @@ serve:
 
 demo:
 	python3 scripts/demo_offline.py --url http://127.0.0.1:8000 --plot docs/amr_detection.png
+
+seed:
+	python3 scripts/seed_demo.py --url http://127.0.0.1:8000 --scenario $(or $(SCENARIO),healthy)
 
 docker:
 	docker build -t robotics-qa-dashboard . && docker run --rm -p 8000:8000 robotics-qa-dashboard

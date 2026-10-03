@@ -4,3 +4,7 @@ src = ["dashboard", "cobot_qa", "amr_health", "scripts"]
 [lint]
 select = ["E", "F", "I", "B"]
 ignore = ["B008"]
+
+[lint.per-file-ignores]
+# HTML/CSS/JS served as one string; line length does not apply
+"dashboard/app/page.py" = ["E501"]

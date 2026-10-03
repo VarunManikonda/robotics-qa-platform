@@ -5,7 +5,7 @@ scenarios and one shared run-history dashboard.
 
 | Package | What it does | Robot / stack |
 |---|---|---|
-| `dashboard/` | FastAPI + SQLite run-history service with progressive filtering, keyset pagination, stats and a small web UI | any client that can POST JSON |
+| `dashboard/` | FastAPI + SQLite run-history service. The web page is written for non-technical readers: a green/amber/red status banner, a short "what needs your attention" list with what to do, a time-per-part trend chart, and a plain-language activity log. Also progressive filtering, keyset pagination and stats APIs | any client that can POST JSON |
 | `cobot_qa/` | Inspection-and-sort cell for a 6-DOF arm: independent UR5e forward kinematics and a deterministic inverse-kinematics solver, workcell world with an overhead camera, colour-based block detection, a sort node that picks each part (virtual suction cup) and places it in the good or reject bin, and per-part reporting to the dashboard | Universal Robots UR5e, ROS 2 Jazzy, MoveIt 2, Gazebo Harmonic |
 | `amr_health/` | Streaming anomaly detector (frozen baseline + spike + CUSUM) for AMR health signals, a velocity-tracking monitor node, and a fault injector to prove detection | Nav2 / TurtleBot3 on ROS 2 Jazzy |
 
@@ -31,6 +31,7 @@ make test                  # 215 tests across the three packages
 make lint                  # ruff
 make serve                 # dashboard on http://127.0.0.1:8000  (terminal 1)
 make demo                  # posts cobot + AMR results, saves docs/amr_detection.png (terminal 2)
+make seed SCENARIO=slowing  # fills the dashboard with example data: healthy | slowing | defects | stuck | amr
 ```
 
 Open http://127.0.0.1:8000 and try the project / status / search filters.
