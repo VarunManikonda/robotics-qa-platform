@@ -25,7 +25,7 @@ def rows_for(scenario, monkeypatch):
     "scenario,status,needle",
     [
         ("healthy", "green", None),
-        ("slowing", None, "longer per part"),
+        ("slowing", "red", "longer per part"),
         ("defects", "red", "defective"),
         ("stuck", "amber", "could not be moved"),
         ("amr", "red", "not moving the way"),

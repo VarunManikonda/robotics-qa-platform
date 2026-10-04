@@ -58,7 +58,7 @@ def seed(url: str, scenario: str, seed_value: int = 7) -> int:
         sent += 1
     if scenario == "slowing":
         for n in range(31, 39):
-            post(url, part(n, False, random.gauss(5.3, 0.15)))
+            post(url, part(n, False, random.gauss(5.8, 0.15)))
             sent += 1
     elif scenario == "defects":
         for n in range(31, 43):
